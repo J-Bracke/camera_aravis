@@ -34,6 +34,7 @@ extern "C" {
 #include <boost/enable_shared_from_this.hpp>
 #include <boost/bind.hpp>
 #include <boost/bind/placeholders.hpp>
+#include <boost/algorithm/string/trim.hpp>
 
 #include <sensor_msgs/Image.h>
 
