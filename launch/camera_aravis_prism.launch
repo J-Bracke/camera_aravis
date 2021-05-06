@@ -11,7 +11,7 @@
 
   <arg name="channel_names"            default="[vis,nir]"/>
   <arg name="pixel_format"             default="[BayerRG8,Mono8]"/>
-  <arg name="width"                    default="2064"/>
+  <arg name="width"                    default="2048"/>
   <arg name="height"                   default="1536"/>
   <arg name="fps"                      default="10.0"/>
 
