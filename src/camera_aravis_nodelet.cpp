@@ -725,10 +725,18 @@ void CameraAravisNodelet::onInit()
     // Start the camerainfo manager.
     ROS_INFO("Set frame_id to: %s", (config_.frame_id + "/" + stream_names_[i]).c_str() );
     std::string frame_id = config_.frame_id + "/" + stream_names_[i];
-    p_camera_info_managers_[i].reset(new camera_info_manager::CameraInfoManager(pnh, frame_id, calib_urls[i]));
+    p_camera_info_managers_[i].reset(new camera_info_manager::CameraInfoManager(nh, frame_id, calib_urls[i]));
     ROS_INFO("Reset %s Camera Info Manager", stream_names_[i].c_str());
     ROS_INFO("%s Calib URL: %s", stream_names_[i].c_str(), calib_urls[i].c_str());
   }
+
+  // set the network mtu + inter packet delay
+  arv_device_set_integer_feature_value(p_device_, "GevSCPSPacketSize", config_.mtu);
+  arv_device_set_integer_feature_value(p_device_, "GevSCPD", config_.packet_delay);
+
+  ROS_WARN("__________________");
+  ROS_WARN("Set GevSCPD to %d", config_.packet_delay);
+  ROS_WARN("__________________");
 
   // update the reconfigure config
   reconfigure_server_->setConfigMin(config_min_);
@@ -791,6 +799,9 @@ void CameraAravisNodelet::onInit()
   if (implemented_features_["GevSCPSPacketSize"])
     ROS_INFO("    Network mtu          = %lu", arv_device_get_integer_feature_value(p_device_, "GevSCPSPacketSize"));
 
+  if (implemented_features_["GevSCPD"])
+    ROS_INFO("    Packet delay         = %ld", arv_device_get_integer_feature_value(p_device_, "GevSCPD"));
+
   ROS_INFO("    ---------------------------");
 
   for(int i = 0; i < num_stream_channels; i++) {
@@ -806,7 +817,7 @@ void CameraAravisNodelet::onInit()
           const gint n_bytes_payload_stream_ = arv_camera_get_payload(p_camera_);
 
           p_buffer_pools_[i].reset(new CameraBufferPool(p_streams_[i], n_bytes_payload_stream_, 5));
-          
+
           if (arv_camera_is_gv_device(p_camera_))
           {
             tuneGvStream(reinterpret_cast<ArvGvStream*>(p_streams_[i]));
@@ -833,10 +844,17 @@ void CameraAravisNodelet::onInit()
   for(int i = 0; i < num_stream_channels; i++) {
     image_transport::ImageTransport *p_transport;
     // Set up image_raw
-    p_transport = new image_transport::ImageTransport(pnh);
-    ROS_INFO("Mapping to %s", (stream_names_[i] + "/image_raw").c_str());
+    std::string frame_id = "";
+    p_transport = new image_transport::ImageTransport(nh);
+    if(num_stream_channels == 1 && stream_names_[i].empty()) {
+      frame_id = "";
+    } else {
+      frame_id = stream_names_[i] + "/";
+    }
+
+    ROS_INFO("Mapping to %s", (frame_id + "image_raw").c_str());
     cam_pubs_[i] = p_transport->advertiseCamera(
-      ros::names::remap(stream_names_[i] + "/image_raw"),
+      ros::names::remap(frame_id + "image_raw"),
       1, image_cb, image_cb, info_cb, info_cb);
   }
 
@@ -852,6 +870,19 @@ void CameraAravisNodelet::onInit()
   for(int i = 0; i < num_stream_channels; i++) {
     arv_stream_set_emit_signals(p_streams_[i], TRUE);
   }
+
+  // set a unified mtu and a staggered inter_packet delay for multi-source cameras
+  ROS_WARN("___________");
+  for(int i = 0; i < num_stream_channels; i++) {
+    arv_camera_gv_select_stream_channel(p_camera_, i);
+    arv_device_set_integer_feature_value(p_device_, "GevSCPSPacketSize", config_.mtu);
+    ROS_WARN("For Stream %d, GevSCPSPacketSize is set to %ld", i,
+      arv_device_get_integer_feature_value(p_device_, "GevSCPSPacketSize"));
+    arv_device_set_integer_feature_value(p_device_, "GevSCPD", i * config_.packet_delay);
+    ROS_WARN("For Stream %d, GevSCPD is set to %ld", i,
+      arv_device_get_integer_feature_value(p_device_, "GevSCPD"));
+  }
+  ROS_WARN("___________");
 
   if (std::any_of(cam_pubs_.begin(), cam_pubs_.end(),
     [](image_transport::CameraPublisher pub){ return pub.getNumSubscribers() > 0; })
@@ -1095,7 +1126,7 @@ void CameraAravisNodelet::setAutoSlave(bool value)
 // Extra stream options for GigEVision streams.
 void CameraAravisNodelet::tuneGvStream(ArvGvStream *p_stream)
 {
-  gboolean b_auto_buffer = FALSE;
+  gboolean b_auto_buffer = TRUE;
   gboolean b_packet_resend = TRUE;
   unsigned int timeout_packet = 40; // milliseconds
   unsigned int timeout_frame_retention = 200;
