@@ -1155,10 +1155,9 @@ void CameraAravisNodelet::tuneGvStream(ArvGvStream *p_stream)
     if (b_auto_buffer)
       g_object_set(p_stream, "socket-buffer", ARV_GV_STREAM_SOCKET_BUFFER_AUTO, "socket-buffer-size", 0,
       NULL);
-    if (!b_packet_resend)
-      g_object_set(p_stream, "packet-resend",
-                   b_packet_resend ? ARV_GV_STREAM_PACKET_RESEND_ALWAYS : ARV_GV_STREAM_PACKET_RESEND_NEVER,
-                   NULL);
+    g_object_set(p_stream, "packet-resend",
+                  b_packet_resend ? ARV_GV_STREAM_PACKET_RESEND_ALWAYS : ARV_GV_STREAM_PACKET_RESEND_NEVER,
+                  NULL);
     g_object_set(p_stream, "packet-timeout", timeout_packet * 1000, "frame-retention", timeout_frame_retention * 1000,
     NULL);
   }
