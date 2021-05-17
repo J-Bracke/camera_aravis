@@ -599,6 +599,8 @@ void CameraAravisNodelet::onInit()
   // Initial camera settings.
   if (implemented_features_["ExposureTime"])
     arv_camera_set_exposure_time(p_camera_, config_.ExposureTime);
+  else if (implemented_features_["ExposureTimeAbs"])
+    arv_device_set_float_feature_value(p_device_, "ExposureTimeAbs", config_.ExposureTime);
   if (implemented_features_["Gain"])
     arv_camera_set_gain(p_camera_, config_.Gain);
   if (implemented_features_["AcquisitionFrameRateEnable"])
@@ -628,7 +630,11 @@ void CameraAravisNodelet::onInit()
       implemented_features_["AcquisitionFrameRate"] ? arv_camera_get_frame_rate(p_camera_) : 0.0;
   config_.ExposureAuto =
       implemented_features_["ExposureAuto"] ? arv_device_get_string_feature_value(p_device_, "ExposureAuto") : "Off";
-  config_.ExposureTime = implemented_features_["ExposureTime"] ? arv_camera_get_exposure_time(p_camera_) : 0.0;
+  if (implemented_features_["ExposureTime"]) {
+    config_.ExposureTime =  arv_camera_get_exposure_time(p_camera_);
+  } else if (implemented_features_["ExposureTimeAbs"]) {
+    config_.ExposureTime = arv_device_get_float_feature_value(p_device_, "ExposureTimeAbs");
+  } else { config_.ExposureTime = 0.0; }
   config_.GainAuto =
       implemented_features_["GainAuto"] ? arv_device_get_string_feature_value(p_device_, "GainAuto") : "Off";
   config_.Gain = implemented_features_["Gain"] ? arv_camera_get_gain(p_camera_) : 0.0;
@@ -661,6 +667,7 @@ void CameraAravisNodelet::onInit()
   // Get other (non GenIcam) parameter current values.
   pnh.param<double>("softwaretriggerrate", config_.softwaretriggerrate, config_.softwaretriggerrate);
   pnh.param<int>("mtu", config_.mtu, config_.mtu);
+  pnh.param<int>("packet_delay", config_.packet_delay, config_.packet_delay);
   pnh.param<std::string>("frame_id", config_.frame_id, config_.frame_id);
   pnh.param<bool>("auto_master", config_.AutoMaster, config_.AutoMaster);
   pnh.param<bool>("auto_slave", config_.AutoSlave, config_.AutoSlave);
@@ -779,8 +786,8 @@ void CameraAravisNodelet::onInit()
     ROS_INFO("    AcquisitionFrameRate = %g hz", config_.AcquisitionFrameRate);
   }
 
-  ROS_INFO("    Can set Exposure:      %s", implemented_features_["ExposureTime"] ? "True" : "False");
-  if (implemented_features_["ExposureTime"])
+  ROS_INFO("    Can set Exposure:      %s", implemented_features_["ExposureTime"] || implemented_features_["ExposureTimeAbs"] ? "True" : "False");
+  if (implemented_features_["ExposureTime"] || implemented_features_["ExposureTimeAbs"])
   {
     ROS_INFO("    Can set ExposureAuto:  %s", implemented_features_["ExposureAuto"] ? "True" : "False");
     ROS_INFO("    Exposure             = %g us in range [%g,%g]", config_.ExposureTime, config_min_.ExposureTime,
@@ -816,7 +823,7 @@ void CameraAravisNodelet::onInit()
           arv_camera_gv_select_stream_channel(p_camera_, i);
           const gint n_bytes_payload_stream_ = arv_camera_get_payload(p_camera_);
 
-          p_buffer_pools_[i].reset(new CameraBufferPool(p_streams_[i], n_bytes_payload_stream_, 5));
+          p_buffer_pools_[i].reset(new CameraBufferPool(p_streams_[i], n_bytes_payload_stream_, 10));
 
           if (arv_camera_is_gv_device(p_camera_))
           {
@@ -898,9 +905,12 @@ void CameraAravisNodelet::cameraAutoInfoCallback(const CameraAutoInfoConstPtr &m
   if (config_.AutoSlave && p_device_)
   {
 
-    if (auto_params_.exposure_time != msg_ptr->exposure_time && implemented_features_["ExposureTime"])
+    if (auto_params_.exposure_time != msg_ptr->exposure_time)
     {
-      arv_device_set_float_feature_value(p_device_, "ExposureTime", msg_ptr->exposure_time);
+      if (implemented_features_["ExposureTime"])
+        arv_device_set_float_feature_value(p_device_, "ExposureTime", msg_ptr->exposure_time);
+      if (implemented_features_["ExposureTimeAbs"])
+        arv_device_set_float_feature_value(p_device_, "ExposureTimeAbs", msg_ptr->exposure_time);
     }
 
     if (implemented_features_["Gain"])
@@ -1013,6 +1023,9 @@ void CameraAravisNodelet::syncAutoParameters()
     if (implemented_features_["ExposureTime"])
     {
       auto_params_.exposure_time = arv_device_get_float_feature_value(p_device_, "ExposureTime");
+    } else if (implemented_features_["ExposureTimeAbs"])
+    {
+      auto_params_.exposure_time = arv_device_get_float_feature_value(p_device_, "ExposureTimeAbs");
     }
 
     if (implemented_features_["Gain"])
@@ -1208,6 +1221,7 @@ void CameraAravisNodelet::rosReconfigureCallback(Config &config, uint32_t level)
   const bool changed_trigger_source = (config_.TriggerSource != config.TriggerSource) || changed_trigger_mode;
   const bool changed_focus_pos = (config_.FocusPos != config.FocusPos);
   const bool changed_mtu = (config_.mtu != config.mtu);
+  const bool changed_packet_delay = (config_.packet_delay != config.packet_delay);
 
   if (changed_auto_master)
   {
@@ -1226,9 +1240,13 @@ void CameraAravisNodelet::rosReconfigureCallback(Config &config, uint32_t level)
     {
       ROS_INFO("Set ExposureTime = %f us", config.ExposureTime);
       arv_camera_set_exposure_time(p_camera_, config.ExposureTime);
-    }
-    else
+    } else if (implemented_features_["ExposureTimeAbs"]) {
+      ROS_INFO("Set ExposureTime = %f us", config.ExposureTime);
+      arv_device_set_float_feature_value(p_device_, "ExposureTimeAbs", config.ExposureTime);
+    } else {
       ROS_INFO("Camera does not support ExposureTime.");
+    }
+
   }
 
   if (changed_gain)
@@ -1244,7 +1262,7 @@ void CameraAravisNodelet::rosReconfigureCallback(Config &config, uint32_t level)
 
   if (changed_exposure_auto)
   {
-    if (implemented_features_["ExposureAuto"] && implemented_features_["ExposureTime"])
+    if (implemented_features_["ExposureAuto"] && (implemented_features_["ExposureTime"] || implemented_features_["ExposureTimeAbs"]))
     {
       ROS_INFO("Set ExposureAuto = %s", config.ExposureAuto.c_str());
       arv_device_set_string_feature_value(p_device_, "ExposureAuto", config.ExposureAuto.c_str());
@@ -1355,13 +1373,33 @@ void CameraAravisNodelet::rosReconfigureCallback(Config &config, uint32_t level)
     if (implemented_features_["GevSCPSPacketSize"])
     {
       ROS_INFO("Set mtu = %d", config.mtu);
-      arv_device_set_integer_feature_value(p_device_, "GevSCPSPacketSize", config.mtu);
+      gint num_streams = arv_device_get_integer_feature_value(p_device_, "DeviceStreamChannelCount");
+      if ( num_streams == 0) { num_streams =  arv_device_get_integer_feature_value(p_device_, "GevStreamChannelCount"); }
+
+      for( int i = 0; i < num_streams; i++) {
+        arv_camera_gv_select_stream_channel(p_camera_, i);
+        arv_device_set_integer_feature_value(p_device_, "GevSCPSPacketSize", config.mtu);
+      }
       ros::Duration(1.0).sleep();
       config.mtu = arv_device_get_integer_feature_value(p_device_, "GevSCPSPacketSize");
       ROS_INFO("Get mtu = %d", config.mtu);
     }
     else
       ROS_INFO("Camera does not support mtu (i.e. GevSCPSPacketSize).");
+  }
+
+  if (changed_packet_delay)
+  {
+    if (implemented_features_["GevSCPD"])
+    {
+      ROS_INFO("Set packet delay = %d", config.packet_delay);
+      arv_device_set_integer_feature_value(p_device_, "GevSCPD", config.packet_delay);
+      ros::Duration(1.0).sleep();
+      config.packet_delay = arv_device_get_integer_feature_value(p_device_, "GevSCPD");
+      ROS_INFO("Get packet delay = %d", config.packet_delay);
+    }
+    else
+      ROS_INFO("Camera does not support packet delay (i.e. GevSCPD).");
   }
 
   if (changed_acquisition_mode)
@@ -1410,7 +1448,7 @@ void CameraAravisNodelet::newBufferReadyCallback(ArvStream *p_stream, gpointer c
   image_transport::CameraPublisher *p_cam_pub = &p_can->cam_pubs_[stream_id];
 
   // extend frame id
-  std::string stream_frame_id = p_can->config_.frame_id + p_can->stream_names_[stream_id];
+  std::string stream_frame_id = p_can->config_.frame_id + "/" + p_can->stream_names_[stream_id];
 
   size_t n_bits_pixel = p_can->sensors_[stream_id]->n_bits_pixel;
 
@@ -1483,7 +1521,7 @@ void CameraAravisNodelet::newBufferReady(ArvStream *p_stream, CameraBufferPool::
     }
     else
     {
-      ROS_WARN("Frame error: %s", szBufferStatusFromInt[arv_buffer_get_status(p_buffer)]);
+      ROS_WARN("(%s) Frame error: %s", frame_id.c_str(), szBufferStatusFromInt[arv_buffer_get_status(p_buffer)]);
       arv_stream_push_buffer(p_stream, p_buffer);
     }
   }
