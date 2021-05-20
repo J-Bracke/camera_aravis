@@ -1526,8 +1526,7 @@ void CameraAravisNodelet::newBufferReady(ArvStream *p_stream, CameraBufferPool::
   }
 
   // publish current lighting settings if this camera is configured as master
-  // or not configured as slave (this update the ROS parameters as well)
-  if (p_can->config_.AutoMaster || !p_can->config_.AutoSlave)
+  if (p_can->config_.AutoMaster)
   {
     p_can->syncAutoParameters();
     p_can->auto_pub_.publish(p_can->auto_params_);
