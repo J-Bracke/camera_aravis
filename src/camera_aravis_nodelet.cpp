@@ -741,10 +741,6 @@ void CameraAravisNodelet::onInit()
   arv_device_set_integer_feature_value(p_device_, "GevSCPSPacketSize", config_.mtu);
   arv_device_set_integer_feature_value(p_device_, "GevSCPD", config_.packet_delay);
 
-  ROS_WARN("__________________");
-  ROS_WARN("Set GevSCPD to %d", config_.packet_delay);
-  ROS_WARN("__________________");
-
   // update the reconfigure config
   reconfigure_server_->setConfigMin(config_min_);
   reconfigure_server_->setConfigMax(config_max_);
@@ -1447,9 +1443,15 @@ void CameraAravisNodelet::newBufferReadyCallback(ArvStream *p_stream, gpointer c
   image_transport::CameraPublisher *p_cam_pub = &p_can->cam_pubs_[stream_id];
 
   // extend frame id
-  std::string stream_frame_id = p_can->config_.frame_id + "/" + p_can->stream_names_[stream_id];
 
   size_t n_bits_pixel = p_can->sensors_[stream_id]->n_bits_pixel;
+
+    std::string stream_frame_id = p_can->config_.frame_id;
+    // extend frame id
+    if( !p_can->stream_names_[stream_id].empty() )
+    {
+        stream_frame_id += "/" + p_can->stream_names_[stream_id];
+    }
 
   newBufferReady(p_stream, p_can->p_buffer_pools_[stream_id],
       p_cam_pub, p_can->camera_infos_[stream_id], p_can->p_camera_info_managers_[stream_id], p_can,
@@ -1637,7 +1639,7 @@ void CameraAravisNodelet::discoverFeatures()
       error = NULL;  // reset error pointer to avoid warnings
       const bool usable = arv_gc_feature_node_is_available(fnode, &error)
           && arv_gc_feature_node_is_implemented(fnode, &error);
-      ROS_INFO_STREAM("Feature " << fname << " is " << usable);
+      ROS_DEBUG_STREAM("Feature " << fname << " is " << usable);
       implemented_features_.emplace(fname, usable);
       //}
     }
