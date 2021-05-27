@@ -745,10 +745,6 @@ void CameraAravisNodelet::onInit()
   arv_device_set_integer_feature_value(p_device_, "GevSCPSPacketSize", config_.mtu);
   arv_device_set_integer_feature_value(p_device_, "GevSCPD", config_.packet_delay);
 
-  ROS_WARN("__________________");
-  ROS_WARN("Set GevSCPD to %d", config_.packet_delay);
-  ROS_WARN("__________________");
-
   // update the reconfigure config
   reconfigure_server_->setConfigMin(config_min_);
   reconfigure_server_->setConfigMax(config_max_);
@@ -883,17 +879,11 @@ void CameraAravisNodelet::onInit()
   }
 
   // set a unified mtu and a staggered inter_packet delay for multi-source cameras
-  ROS_WARN("___________");
-  for(int i = 0; i < num_stream_channels; i++) {
+for(int i = 0; i < num_stream_channels; i++) {
     arv_camera_gv_select_stream_channel(p_camera_, i);
     arv_device_set_integer_feature_value(p_device_, "GevSCPSPacketSize", config_.mtu);
-    ROS_WARN("For Stream %d, GevSCPSPacketSize is set to %ld", i,
-      arv_device_get_integer_feature_value(p_device_, "GevSCPSPacketSize"));
     arv_device_set_integer_feature_value(p_device_, "GevSCPD", i * config_.packet_delay);
-    ROS_WARN("For Stream %d, GevSCPD is set to %ld", i,
-      arv_device_get_integer_feature_value(p_device_, "GevSCPD"));
-  }
-  ROS_WARN("___________");
+    }
 
   if (std::any_of(cam_pubs_.begin(), cam_pubs_.end(),
     [](image_transport::CameraPublisher pub){ return pub.getNumSubscribers() > 0; })
@@ -1470,15 +1460,14 @@ void CameraAravisNodelet::newBufferReadyCallback(ArvStream *p_stream, gpointer c
   size_t stream_id = data->stream_id;
   image_transport::CameraPublisher *p_cam_pub = &p_can->cam_pubs_[stream_id];
 
+  size_t n_bits_pixel = p_can->sensors_[stream_id]->n_bits_pixel;
 
   std::string stream_frame_id = p_can->config_.frame_id;
   // extend frame id
   if( !p_can->stream_names_[stream_id].empty() )
   {
-    stream_frame_id += "/" + p_can->stream_names_[stream_id];
+      stream_frame_id += "/" + p_can->stream_names_[stream_id];
   }
-
-  size_t n_bits_pixel = p_can->sensors_[stream_id]->n_bits_pixel;
 
   newBufferReady(p_stream, p_can->p_buffer_pools_[stream_id],
       p_cam_pub, p_can->camera_infos_[stream_id], p_can->p_camera_info_managers_[stream_id], p_can,
@@ -1577,36 +1566,6 @@ void CameraAravisNodelet::newBufferReady(ArvStream *p_stream, CameraBufferPool::
     else
     {
       ROS_WARN("(%s) Frame error: %s", frame_id.c_str(), szBufferStatusFromInt[arv_buffer_get_status(p_buffer)]);
-
-      std::string bool_str = std::to_string(int(p_can->config_.ExtendedCameraInfo));
-      ROS_WARN("Publish Extended Camera Info : %s", bool_str.c_str());
-
-      if (p_can->config_.ExtendedCameraInfo) {
-          ROS_WARN("Publish Extended Camera Info Message!");
-          ExtendedCameraInfo msg;
-
-          msg.camera_info = sensor_msgs::CameraInfo();
-
-          p_can->syncAutoParameters(); // this updates all necessary parameter values
-
-          msg.exposure_time = 2000.;
-
-          msg.gain_red = 10.;
-          msg.gain_green = 10.;
-          msg.gain_blue = 10.;
-
-          msg.black_level_red = 20.;
-          msg.black_level_green = 20.;
-          msg.black_level_blue = 20.;
-
-          msg.white_balance_red = 30.;
-          msg.white_balance_green = 30.;
-          msg.white_balance_blue = 30.;
-
-          p_can->extended_camera_info_pub_.publish(msg);
-
-        }
-
       arv_stream_push_buffer(p_stream, p_buffer);
     }
   }
