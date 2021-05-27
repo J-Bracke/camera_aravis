@@ -1218,6 +1218,7 @@ void CameraAravisNodelet::rosReconfigureCallback(Config &config, uint32_t level)
   // Find valid user changes we need to react to.
   const bool changed_auto_master = (config_.AutoMaster != config.AutoMaster);
   const bool changed_auto_slave = (config_.AutoSlave != config.AutoSlave);
+  const bool changed_extended_camera_info = (config_.ExtendedCameraInfo != config.ExtendedCameraInfo);
   const bool changed_acquisition_frame_rate = (config_.AcquisitionFrameRate != config.AcquisitionFrameRate);
   const bool changed_exposure_auto = (config_.ExposureAuto != config.ExposureAuto);
   const bool changed_exposure_time = (config_.ExposureTime != config.ExposureTime);
