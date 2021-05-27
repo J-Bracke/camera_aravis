@@ -1436,16 +1436,14 @@ void CameraAravisNodelet::newBufferReadyCallback(ArvStream *p_stream, gpointer c
   size_t stream_id = data->stream_id;
   image_transport::CameraPublisher *p_cam_pub = &p_can->cam_pubs_[stream_id];
 
-  // extend frame id
-
   size_t n_bits_pixel = p_can->sensors_[stream_id]->n_bits_pixel;
 
-    std::string stream_frame_id = p_can->config_.frame_id;
-    // extend frame id
-    if( !p_can->stream_names_[stream_id].empty() )
-    {
-        stream_frame_id += "/" + p_can->stream_names_[stream_id];
-    }
+  std::string stream_frame_id = p_can->config_.frame_id;
+  // extend frame id
+  if( !p_can->stream_names_[stream_id].empty() )
+  {
+      stream_frame_id += "/" + p_can->stream_names_[stream_id];
+  }
 
   newBufferReady(p_stream, p_can->p_buffer_pools_[stream_id],
       p_cam_pub, p_can->camera_infos_[stream_id], p_can->p_camera_info_managers_[stream_id], p_can,
@@ -1513,6 +1511,33 @@ void CameraAravisNodelet::newBufferReady(ArvStream *p_stream, CameraBufferPool::
         p_camera_info->height = p_can->roi_.height;
       }
       p_cam_pub->publish(msg_ptr, p_camera_info);
+
+      // publish an extended_camera_info message
+      if (p_can->config_.ExtendedCameraInfo) {
+        ROS_WARN("Publish Extended Camera Info Message!");
+        ExtendedCameraInfo msg;
+
+        msg.camera_info = *p_camera_info;
+
+        p_can->syncAutoParameters(); // this updates all necessary parameter values
+
+        msg.exposure_time = p_can->auto_params_.exposure_time;
+
+        msg.gain_red = p_can->auto_params_.gain_red;
+        msg.gain_green = p_can->auto_params_.gain_green;
+        msg.gain_blue = p_can->auto_params_.gain_blue;
+
+        msg.black_level_red = p_can->auto_params_.bl_red;
+        msg.black_level_green = p_can->auto_params_.bl_green;
+        msg.black_level_blue = p_can->auto_params_.bl_blue;
+
+        msg.white_balance_red = p_can->auto_params_.wb_red;
+        msg.white_balance_green = p_can->auto_params_.wb_green;
+        msg.white_balance_blue = p_can->auto_params_.wb_blue;
+
+        p_can->extended_camera_info_pub_.publish(msg);
+
+      }
     }
     else
     {

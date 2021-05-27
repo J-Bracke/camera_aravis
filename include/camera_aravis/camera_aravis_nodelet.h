@@ -62,6 +62,7 @@ extern "C" {
 #include <tf2_ros/transform_broadcaster.h>
 #include <camera_aravis/CameraAravisConfig.h>
 #include <camera_aravis/CameraAutoInfo.h>
+#include <camera_aravis/ExtendedCameraInfo.h>
 
 #include "camera_buffer_pool.h"
 
@@ -208,6 +209,8 @@ protected:
   void setAutoMaster(bool value);
   void setAutoSlave(bool value);
 
+  void setExtendedCameraInfo(bool value);
+
   // Extra stream options for GigEVision streams.
   void tuneGvStream(ArvGvStream *p_stream);
 
@@ -260,6 +263,9 @@ protected:
   CameraAutoInfo auto_params_;
   ros::Publisher auto_pub_;
   ros::Subscriber auto_sub_;
+
+  ExtendedCameraInfo extended_camera_info_params_;
+  ros::Publisher extended_camera_info_pub_;
 
   Config config_;
   Config config_min_;
