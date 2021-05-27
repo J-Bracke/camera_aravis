@@ -519,7 +519,7 @@ void CameraAravisNodelet::onInit()
       p_camera_ = arv_camera_new(guid.c_str(), NULL);
     }
     ros::Duration(1.0).sleep();
-    // ros::spinOnce();
+    ros::spinOnce();
   }
 
   p_device_ = arv_camera_get_device(p_camera_);
@@ -537,7 +537,7 @@ void CameraAravisNodelet::onInit()
 
   // Check the number of streams for this camera
   gint num_stream_channels = 0;
-  num_stream_channels = arv_device_get_integer_feature_value(p_device_, "DeviceStreamChannelCount", NULL);
+  num_stream_channels = arv_camera_gv_get_n_stream_channels(p_camera_, NULL);
   // if this return 0, try the deprecated GevStreamChannelCount in case this is an older camera
   if (num_stream_channels == 0) {
     num_stream_channels = arv_device_get_integer_feature_value(p_device_, "GevStreamChannelCount", NULL);
@@ -773,9 +773,7 @@ void CameraAravisNodelet::onInit()
       implemented_features_["AcquisitionMode"] ? arv_device_get_string_feature_value(p_device_, "AcquisitionMode", NULL) :
           "(not implemented in camera)");
   ROS_INFO(
-      "    Trigger Mode         = %s",
-      implemented_features_["TriggerMode"] ? arv_device_get_string_feature_value(p_device_, "TriggerMode", NULL) :
-          "(not implemented in camera)");
+      "    Trigger Mode         = %s", arv_device_get_string_feature_value(p_device_, "TriggerMode", NULL));
   ROS_INFO(
       "    Trigger Source       = %s",
       implemented_features_["TriggerSource"] ? arv_device_get_string_feature_value(p_device_, "TriggerSource", NULL) :
@@ -815,6 +813,7 @@ void CameraAravisNodelet::onInit()
     while (true) {
 
       arv_camera_gv_select_stream_channel(p_camera_, i, NULL);
+      ROS_WARN("Opening Stream for Channel: %d", arv_camera_gv_get_current_stream_channel(p_camera_, NULL));
       p_streams_[i] = arv_camera_create_stream(p_camera_, NULL, NULL, NULL);
 
         if (p_streams_[i])
@@ -1681,7 +1680,7 @@ void CameraAravisNodelet::discoverFeatures()
       error = NULL;  // reset error pointer to avoid warnings
       const bool usable = arv_gc_feature_node_is_available(fnode, &error)
           && arv_gc_feature_node_is_implemented(fnode, &error);
-      ROS_DEBUG_STREAM("Feature " << fname << " is " << usable);
+      ROS_WARN_STREAM("Feature " << fname << " is " << usable);
       implemented_features_.emplace(fname, usable);
       //}
     }
