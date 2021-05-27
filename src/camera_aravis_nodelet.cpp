@@ -674,6 +674,10 @@ void CameraAravisNodelet::onInit()
   setAutoMaster(config_.AutoMaster);
   setAutoSlave(config_.AutoSlave);
 
+  // publish an extended camera info message
+  pnh.param<bool>("ExtendedCameraInfo", config_.ExtendedCameraInfo, config_.ExtendedCameraInfo);
+  setExtendedCameraInfo(config_.ExtendedCameraInfo);
+
   // should we publish tf transforms to camera optical frame?
   bool pub_tf_optical;
   pnh.param<bool>("publish_tf", pub_tf_optical, false);
@@ -1136,6 +1140,20 @@ void CameraAravisNodelet::setAutoSlave(bool value)
   }
 }
 
+void CameraAravisNodelet::setExtendedCameraInfo(bool value)
+{
+    std::string bool_str = std::to_string(int(value));
+    ROS_WARN("Set extended camera info flag to %s", bool_str.c_str());
+    if (value)
+    {
+        extended_camera_info_pub_  = getNodeHandle().advertise<ExtendedCameraInfo>(ros::names::remap("extended_camera_info"), 1, true);
+    }
+    else
+    {
+        extended_camera_info_pub_.shutdown();
+    }
+}
+
 // Extra stream options for GigEVision streams.
 void CameraAravisNodelet::tuneGvStream(ArvGvStream *p_stream)
 {
@@ -1210,6 +1228,7 @@ void CameraAravisNodelet::rosReconfigureCallback(Config &config, uint32_t level)
   // Find valid user changes we need to react to.
   const bool changed_auto_master = (config_.AutoMaster != config.AutoMaster);
   const bool changed_auto_slave = (config_.AutoSlave != config.AutoSlave);
+  const bool changed_extended_camera_info = (config_.ExtendedCameraInfo != config.ExtendedCameraInfo);
   const bool changed_acquisition_frame_rate = (config_.AcquisitionFrameRate != config.AcquisitionFrameRate);
   const bool changed_exposure_auto = (config_.ExposureAuto != config.ExposureAuto);
   const bool changed_exposure_time = (config_.ExposureTime != config.ExposureTime);
@@ -1230,6 +1249,11 @@ void CameraAravisNodelet::rosReconfigureCallback(Config &config, uint32_t level)
   if (changed_auto_slave)
   {
     setAutoSlave(config.AutoSlave);
+  }
+
+  if (changed_extended_camera_info)
+  {
+    setExtendedCameraInfo(config.ExtendedCameraInfo);
   }
 
   // Set params into the camera.
@@ -1446,8 +1470,13 @@ void CameraAravisNodelet::newBufferReadyCallback(ArvStream *p_stream, gpointer c
   size_t stream_id = data->stream_id;
   image_transport::CameraPublisher *p_cam_pub = &p_can->cam_pubs_[stream_id];
 
+
+  std::string stream_frame_id = p_can->config_.frame_id;
   // extend frame id
-  std::string stream_frame_id = p_can->config_.frame_id + "/" + p_can->stream_names_[stream_id];
+  if( !p_can->stream_names_[stream_id].empty() )
+  {
+    stream_frame_id += "/" + p_can->stream_names_[stream_id];
+  }
 
   size_t n_bits_pixel = p_can->sensors_[stream_id]->n_bits_pixel;
 
@@ -1517,10 +1546,67 @@ void CameraAravisNodelet::newBufferReady(ArvStream *p_stream, CameraBufferPool::
         p_camera_info->height = p_can->roi_.height;
       }
       p_cam_pub->publish(msg_ptr, p_camera_info);
+
+      // publish an extended_camera_info message
+      if (p_can->config_.ExtendedCameraInfo) {
+        ROS_WARN("Publish Extended Camera Info Message!");
+        ExtendedCameraInfo msg;
+
+        msg.camera_info = *p_camera_info;
+
+        p_can->syncAutoParameters(); // this updates all necessary parameter values
+
+        msg.exposure_time = p_can->auto_params_.exposure_time;
+
+        msg.gain_red = p_can->auto_params_.gain_red;
+        msg.gain_green = p_can->auto_params_.gain_green;
+        msg.gain_blue = p_can->auto_params_.gain_blue;
+
+        msg.black_level_red = p_can->auto_params_.bl_red;
+        msg.black_level_green = p_can->auto_params_.bl_green;
+        msg.black_level_blue = p_can->auto_params_.bl_blue;
+
+        msg.white_balance_red = p_can->auto_params_.wb_red;
+        msg.white_balance_green = p_can->auto_params_.wb_green;
+        msg.white_balance_blue = p_can->auto_params_.wb_blue;
+
+        p_can->extended_camera_info_pub_.publish(msg);
+
+      }
     }
     else
     {
       ROS_WARN("(%s) Frame error: %s", frame_id.c_str(), szBufferStatusFromInt[arv_buffer_get_status(p_buffer)]);
+
+      std::string bool_str = std::to_string(int(p_can->config_.ExtendedCameraInfo));
+      ROS_WARN("Publish Extended Camera Info : %s", bool_str.c_str());
+
+      if (p_can->config_.ExtendedCameraInfo) {
+          ROS_WARN("Publish Extended Camera Info Message!");
+          ExtendedCameraInfo msg;
+
+          msg.camera_info = sensor_msgs::CameraInfo();
+
+          p_can->syncAutoParameters(); // this updates all necessary parameter values
+
+          msg.exposure_time = 2000.;
+
+          msg.gain_red = 10.;
+          msg.gain_green = 10.;
+          msg.gain_blue = 10.;
+
+          msg.black_level_red = 20.;
+          msg.black_level_green = 20.;
+          msg.black_level_blue = 20.;
+
+          msg.white_balance_red = 30.;
+          msg.white_balance_green = 30.;
+          msg.white_balance_blue = 30.;
+
+          p_can->extended_camera_info_pub_.publish(msg);
+
+        }
+
       arv_stream_push_buffer(p_stream, p_buffer);
     }
   }
