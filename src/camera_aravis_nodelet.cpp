@@ -875,17 +875,11 @@ void CameraAravisNodelet::onInit()
   }
 
   // set a unified mtu and a staggered inter_packet delay for multi-source cameras
-  ROS_WARN("___________");
   for(int i = 0; i < num_stream_channels; i++) {
     arv_camera_gv_select_stream_channel(p_camera_, i);
     arv_device_set_integer_feature_value(p_device_, "GevSCPSPacketSize", config_.mtu);
-    ROS_WARN("For Stream %d, GevSCPSPacketSize is set to %ld", i,
-      arv_device_get_integer_feature_value(p_device_, "GevSCPSPacketSize"));
     arv_device_set_integer_feature_value(p_device_, "GevSCPD", i * config_.packet_delay);
-    ROS_WARN("For Stream %d, GevSCPD is set to %ld", i,
-      arv_device_get_integer_feature_value(p_device_, "GevSCPD"));
   }
-  ROS_WARN("___________");
 
   if (std::any_of(cam_pubs_.begin(), cam_pubs_.end(),
     [](image_transport::CameraPublisher pub){ return pub.getNumSubscribers() > 0; })
@@ -1717,7 +1711,7 @@ void CameraAravisNodelet::writeCameraFeaturesFromRosparam()
           {
             int value = (bool)iter->second;
             arv_device_set_integer_feature_value(p_device_, key.c_str(), value);
-            ROS_INFO("Read parameter (bool) %s: %d", key.c_str(), value);
+            ROS_DEBUG("Read parameter (bool) %s: %d", key.c_str(), value);
           }
             break;
 
@@ -1725,7 +1719,7 @@ void CameraAravisNodelet::writeCameraFeaturesFromRosparam()
           {
             int value = (int)iter->second;
             arv_device_set_integer_feature_value(p_device_, key.c_str(), value);
-            ROS_INFO("Read parameter (int) %s: %d", key.c_str(), value);
+            ROS_DEBUG("Read parameter (int) %s: %d", key.c_str(), value);
           }
             break;
 
@@ -1733,7 +1727,7 @@ void CameraAravisNodelet::writeCameraFeaturesFromRosparam()
           {
             double value = (double)iter->second;
             arv_device_set_float_feature_value(p_device_, key.c_str(), value);
-            ROS_INFO("Read parameter (float) %s: %f", key.c_str(), value);
+            ROS_DEBUG("Read parameter (float) %s: %f", key.c_str(), value);
           }
             break;
 
@@ -1741,7 +1735,7 @@ void CameraAravisNodelet::writeCameraFeaturesFromRosparam()
           {
             std::string value = (std::string)iter->second;
             arv_device_set_string_feature_value(p_device_, key.c_str(), value.c_str());
-            ROS_INFO("Read parameter (string) %s: %s", key.c_str(), value.c_str());
+            ROS_DEBUG("Read parameter (string) %s: %s", key.c_str(), value.c_str());
           }
             break;
 
