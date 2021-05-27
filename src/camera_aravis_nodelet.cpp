@@ -1538,12 +1538,47 @@ void CameraAravisNodelet::newBufferReady(ArvStream *p_stream, CameraBufferPool::
 
       // publish an extended_camera_info message
       if (p_can->config_.ExtendedCameraInfo) {
-        ROS_WARN("Publish Extended Camera Info Message!");
         ExtendedCameraInfo msg;
 
         msg.camera_info = *p_camera_info;
 
-        p_can->syncAutoParameters(); // this updates all necessary parameter values
+        // Exposure Time
+        
+        p_can->auto_params_.exposure_time = arv_device_get_float_feature_value(p_can->p_device_, "ExposureTime");
+        p_can->auto_params_.exposure_time = arv_device_get_float_feature_value(p_can->p_device_, "ExposureTimeAbs");
+        
+        // Gain
+        
+        arv_device_set_string_feature_value(p_can->p_device_, "GainSelector", "Red");
+        p_can->auto_params_.gain_red = arv_device_get_float_feature_value(p_can->p_device_, "Gain");
+        arv_device_set_string_feature_value(p_can->p_device_, "GainSelector", "Green");
+        p_can->auto_params_.gain_green = arv_device_get_float_feature_value(p_can->p_device_, "Gain");
+        arv_device_set_string_feature_value(p_can->p_device_, "GainSelector", "Blue");
+        p_can->auto_params_.gain_blue = arv_device_get_float_feature_value(p_can->p_device_, "Gain");
+        arv_device_set_string_feature_value(p_can->p_device_, "BlackLevelSelector", "Red");
+        
+        // black level
+        p_can->auto_params_.bl_red = arv_device_get_float_feature_value(p_can->p_device_, "BlackLevel");
+        arv_device_set_string_feature_value(p_can->p_device_, "BlackLevelSelector", "Green");
+        p_can->auto_params_.bl_green = arv_device_get_float_feature_value(p_can->p_device_, "BlackLevel");
+        arv_device_set_string_feature_value(p_can->p_device_, "BlackLevelSelector", "Blue");
+        p_can->auto_params_.bl_blue = arv_device_get_float_feature_value(p_can->p_device_, "BlackLevel");
+
+        // White balance
+        if (strcmp("The Imaging Source Europe GmbH", arv_camera_get_vendor_name(p_can->p_camera_)) == 0)
+        {
+          p_can->auto_params_.wb_red = arv_device_get_integer_feature_value(p_can->p_device_, "WhiteBalanceRedRegister") / 255.;
+          p_can->auto_params_.wb_green = arv_device_get_integer_feature_value(p_can->p_device_, "WhiteBalanceGreenRegister") / 255.;
+          p_can->auto_params_.wb_blue = arv_device_get_integer_feature_value(p_can->p_device_, "WhiteBalanceBlueRegister") / 255.;
+        } else {
+          arv_device_set_string_feature_value(p_can->p_device_, "BalanceRatioSelector", "Red");
+          p_can->auto_params_.wb_red = arv_device_get_float_feature_value(p_can->p_device_, "BalanceRatio");
+          arv_device_set_string_feature_value(p_can->p_device_, "BalanceRatioSelector", "Green");
+          p_can->auto_params_.wb_green = arv_device_get_float_feature_value(p_can->p_device_, "BalanceRatio");
+          arv_device_set_string_feature_value(p_can->p_device_, "BalanceRatioSelector", "Blue");
+          p_can->auto_params_.wb_blue = arv_device_get_float_feature_value(p_can->p_device_, "BalanceRatio");
+        }
+        
 
         msg.exposure_time = p_can->auto_params_.exposure_time;
 
@@ -1760,7 +1795,7 @@ void CameraAravisNodelet::writeCameraFeaturesFromRosparam()
           {
             int value = (bool)iter->second;
             arv_device_set_integer_feature_value(p_device_, key.c_str(), value);
-            ROS_INFO("Read parameter (bool) %s: %d", key.c_str(), value);
+            ROS_DEBUG("Read parameter (bool) %s: %d", key.c_str(), value);
           }
             break;
 
@@ -1768,7 +1803,7 @@ void CameraAravisNodelet::writeCameraFeaturesFromRosparam()
           {
             int value = (int)iter->second;
             arv_device_set_integer_feature_value(p_device_, key.c_str(), value);
-            ROS_INFO("Read parameter (int) %s: %d", key.c_str(), value);
+            ROS_DEBUG("Read parameter (int) %s: %d", key.c_str(), value);
           }
             break;
 
@@ -1776,7 +1811,7 @@ void CameraAravisNodelet::writeCameraFeaturesFromRosparam()
           {
             double value = (double)iter->second;
             arv_device_set_float_feature_value(p_device_, key.c_str(), value);
-            ROS_INFO("Read parameter (float) %s: %f", key.c_str(), value);
+            ROS_DEBUG("Read parameter (float) %s: %f", key.c_str(), value);
           }
             break;
 
@@ -1784,7 +1819,7 @@ void CameraAravisNodelet::writeCameraFeaturesFromRosparam()
           {
             std::string value = (std::string)iter->second;
             arv_device_set_string_feature_value(p_device_, key.c_str(), value.c_str());
-            ROS_INFO("Read parameter (string) %s: %s", key.c_str(), value.c_str());
+            ROS_DEBUG("Read parameter (string) %s: %s", key.c_str(), value.c_str());
           }
             break;
 
