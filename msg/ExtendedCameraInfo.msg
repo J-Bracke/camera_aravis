@@ -1,5 +1,5 @@
-# Contain the standard  sensor_msgs/CameraInfo and extended information about the image acquisition parameters.
-# This includes information about the Exposure, Gain, Black level and White balance.
+# Contains the standard sensor_msgs/CameraInfo and additional information about the image acquisition parameters.
+# This includes parameters on the Exposure, Gain, Black level and White balance.
 
 sensor_msgs/CameraInfo camera_info # contains a header and calibration parameters
 
