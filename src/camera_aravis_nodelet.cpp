@@ -526,6 +526,11 @@ void CameraAravisNodelet::onInit()
   ROS_INFO("Opened: %s-%s", arv_camera_get_vendor_name(p_camera_, NULL),
            arv_device_get_string_feature_value(p_device_, "DeviceSerialNumber", NULL));
 
+  // Set register cache policy
+  ArvGc *gc = arv_device_get_genicam(p_device_);
+  arv_gc_set_register_cache_policy(gc, ARV_REGISTER_CACHE_POLICY_DISABLE);
+
+
   // Start the dynamic_reconfigure server.
   reconfigure_server_.reset(new dynamic_reconfigure::Server<Config>(reconfigure_mutex_, pnh));
   reconfigure_server_->getConfigDefault(config_);
@@ -629,7 +634,7 @@ void CameraAravisNodelet::onInit()
   if (error != NULL ) {
     config_.ExposureTime = arv_device_get_float_feature_value(p_device_, "ExposureTimeAbs", NULL);
   }
-  
+
   config_.GainAuto = arv_device_get_string_feature_value(p_device_, "GainAuto", NULL);
   config_.Gain = arv_camera_get_gain(p_camera_, NULL);
   config_.TriggerMode = arv_device_get_string_feature_value(p_device_, "TriggerMode", NULL);
@@ -965,7 +970,7 @@ void CameraAravisNodelet::cameraAutoInfoCallback(const CameraAutoInfoConstPtr &m
       arv_device_set_integer_feature_value(p_device_, "WhiteBalanceGreenRegister", (int)(auto_params_.wb_green * 255.), NULL);
       arv_device_set_integer_feature_value(p_device_, "WhiteBalanceBlueRegister", (int)(auto_params_.wb_blue * 255.), NULL);
     }
-    else if (arv_camera_is_feature_available(p_camera_, "BalanceRatio", NULL) && 
+    else if (arv_camera_is_feature_available(p_camera_, "BalanceRatio", NULL) &&
       arv_camera_is_feature_available(p_camera_, "BalanceRatioSelector", NULL))
     {
       if (auto_params_.wb_red != msg_ptr->wb_red)
@@ -1052,7 +1057,7 @@ void CameraAravisNodelet::syncAutoParameters()
       auto_params_.wb_blue = arv_device_get_integer_feature_value(p_device_, "WhiteBalanceBlueRegister", NULL) / 255.;
     }
     // the standard way
-    else if (arv_camera_is_feature_available(p_camera_, "BalanceRatio", NULL) && 
+    else if (arv_camera_is_feature_available(p_camera_, "BalanceRatio", NULL) &&
       arv_camera_is_feature_available(p_camera_, "BalanceRatioSelector", NULL))
     {
       arv_device_set_string_feature_value(p_device_, "BalanceRatioSelector", "Red", NULL);
@@ -1262,7 +1267,7 @@ void CameraAravisNodelet::rosReconfigureCallback(Config &config, uint32_t level)
 
   if (changed_exposure_auto)
   {
-    if (arv_camera_is_feature_available(p_camera_, "ExposureAuto", NULL) 
+    if (arv_camera_is_feature_available(p_camera_, "ExposureAuto", NULL)
       && (arv_camera_is_feature_available(p_camera_, "ExposureTime", NULL) || arv_camera_is_feature_available(p_camera_, "ExposureTimeAbs", NULL)))
     {
       ROS_INFO("Set ExposureAuto = %s", config.ExposureAuto.c_str());
@@ -1530,21 +1535,91 @@ void CameraAravisNodelet::newBufferReady(ArvStream *p_stream, CameraBufferPool::
 
         msg.camera_info = *p_camera_info;
 
-        p_can->syncAutoParameters(); // this updates all necessary parameter values
+        // p_can->syncAutoParameters(); // this updates all necessary parameter values
+        if (arv_camera_is_feature_available(p_can->p_camera_, "ExposureTime", NULL))
+        {
+          msg.exposure_time = arv_device_get_float_feature_value(p_can->p_device_, "ExposureTime", NULL);
+        }
+        /*else if (arv_camera_is_feature_available(p_can->p_camera_, "ExposureTimeAbs", NULL))
+        {
+          msg.exposure_time = arv_device_get_float_feature_value(p_can->p_device_, "ExposureTimeAbs", NULL);
+        }*/
 
-        msg.exposure_time = p_can->auto_params_.exposure_time;
 
-        msg.gain_red = p_can->auto_params_.gain_red;
-        msg.gain_green = p_can->auto_params_.gain_green;
-        msg.gain_blue = p_can->auto_params_.gain_blue;
+        if (arv_camera_is_feature_available(p_can->p_camera_, "Gain", NULL))
+        {
+          if (arv_camera_is_feature_available(p_can->p_camera_, "GainSelector", NULL))
+          {
+            arv_device_set_string_feature_value(p_can->p_device_, "GainSelector", "All", NULL);
+          }
+          msg.gain_red = arv_device_get_float_feature_value(p_can->p_device_, "Gain", NULL);
+          msg.gain_green = msg.gain_red;
+          msg.gain_blue = msg.gain_red;
+          if (arv_camera_is_feature_available(p_can->p_camera_, "GainSelector", NULL))
+          {
+            arv_device_set_string_feature_value(p_can->p_device_, "GainSelector", "Red", NULL);
+            msg.gain_red = arv_device_get_float_feature_value(p_can->p_device_, "Gain", NULL);
+            arv_device_set_string_feature_value(p_can->p_device_, "GainSelector", "Green", NULL);
+            msg.gain_green = arv_device_get_float_feature_value(p_can->p_device_, "Gain", NULL);
+            arv_device_set_string_feature_value(p_can->p_device_, "GainSelector", "Blue", NULL);
+            msg.gain_blue = arv_device_get_float_feature_value(p_can->p_device_, "Gain", NULL);
+          }
+        }
 
-        msg.black_level_red = p_can->auto_params_.bl_red;
-        msg.black_level_green = p_can->auto_params_.bl_green;
-        msg.black_level_blue = p_can->auto_params_.bl_blue;
 
-        msg.white_balance_red = p_can->auto_params_.wb_red;
-        msg.white_balance_green = p_can->auto_params_.wb_green;
-        msg.white_balance_blue = p_can->auto_params_.wb_blue;
+        /*
+        msg.gain_red = 0;
+        msg.gain_green = 0;
+        msg.gain_blue = 0;
+        */
+
+        /*
+        if (arv_camera_is_feature_available(p_can->p_camera_, "BlackLevel", NULL))
+        {
+          if (arv_camera_is_feature_available(p_can->p_camera_, "BlackLevelSelector", NULL))
+          {
+            arv_device_set_string_feature_value(p_can->p_device_, "BlackLevelSelector", "All", NULL);
+          }
+          msg.black_level_red = arv_device_get_float_feature_value(p_can->p_device_, "BlackLevel", NULL);
+          msg.black_level_green = msg.black_level_red;
+          msg.black_level_blue = msg.black_level_red;
+
+          if (arv_camera_is_feature_available(p_can->p_camera_, "BlackLevelSelector", NULL))
+          {
+            arv_device_set_string_feature_value(p_can->p_device_, "BlackLevelSelector", "Red", NULL);
+            msg.black_level_red = arv_device_get_float_feature_value(p_can->p_device_, "BlackLevel", NULL);
+            arv_device_set_string_feature_value(p_can->p_device_, "BlackLevelSelector", "Green", NULL);
+            msg.black_level_green = arv_device_get_float_feature_value(p_can->p_device_, "BlackLevel", NULL);
+            arv_device_set_string_feature_value(p_can->p_device_, "BlackLevelSelector", "Blue", NULL);
+            msg.black_level_blue = arv_device_get_float_feature_value(p_can->p_device_, "BlackLevel", NULL);
+          }
+
+        }
+        */
+        /*
+        msg.black_level_red = 0;
+        msg.black_level_green = 0;
+        msg.black_level_blue = 0;
+        */
+
+        // White balance as TIS is providing
+        if (strcmp("The Imaging Source Europe GmbH", arv_camera_get_vendor_name(p_can->p_camera_, NULL)) == 0)
+        {
+          msg.white_balance_red = arv_device_get_integer_feature_value(p_can->p_device_, "WhiteBalanceRedRegister", NULL) / 255.;
+          msg.white_balance_green = arv_device_get_integer_feature_value(p_can->p_device_, "WhiteBalanceGreenRegister", NULL) / 255.;
+          msg.white_balance_blue = arv_device_get_integer_feature_value(p_can->p_device_, "WhiteBalanceBlueRegister", NULL) / 255.;
+        }
+        // the standard way
+        else if (arv_camera_is_feature_available(p_can->p_camera_, "BalanceRatio", NULL) &&
+          arv_camera_is_feature_available(p_can->p_camera_, "BalanceRatioSelector", NULL))
+        {
+          arv_device_set_string_feature_value(p_can->p_device_, "BalanceRatioSelector", "Red", NULL);
+          msg.white_balance_red = arv_device_get_float_feature_value(p_can->p_device_, "BalanceRatio", NULL);
+          arv_device_set_string_feature_value(p_can->p_device_, "BalanceRatioSelector", "Green", NULL);
+          msg.white_balance_green = arv_device_get_float_feature_value(p_can->p_device_, "BalanceRatio", NULL);
+          arv_device_set_string_feature_value(p_can->p_device_, "BalanceRatioSelector", "Blue", NULL);
+          msg.white_balance_blue = arv_device_get_float_feature_value(p_can->p_device_, "BalanceRatio", NULL);
+        }
 
         p_can->extended_camera_info_pub_.publish(msg);
 
