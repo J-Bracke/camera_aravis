@@ -209,7 +209,7 @@ protected:
   void setAutoMaster(bool value);
   void setAutoSlave(bool value);
 
-  void setExtendedCameraInfo(bool value);
+  void setExtendedCameraInfo(std::string frame_id, size_t stream_id);
 
   // Extra stream options for GigEVision streams.
   void tuneGvStream(ArvGvStream *p_stream);
@@ -223,7 +223,7 @@ protected:
   static void newBufferReadyCallback(ArvStream *p_stream, gpointer can_instance);
 
   // Buffer Callback Helper
-  static void newBufferReady(ArvStream *p_stream, CameraBufferPool::Ptr p_buffer_pool, image_transport::CameraPublisher* p_cam_pub, sensor_msgs::CameraInfoPtr p_camera_info, std::unique_ptr<camera_info_manager::CameraInfoManager>& p_camera_info_manager, CameraAravisNodelet *p_can, std::string frame_id, std::string pixel_format, size_t n_bits_pixel);
+  static void newBufferReady(ArvStream *p_stream, CameraAravisNodelet *p_can, std::string frame_id, size_t stream_id);
 
   // Clean-up if aravis device is lost
   static void controlLostCallback(ArvDevice *p_gv_device, gpointer can_instance);
@@ -264,8 +264,8 @@ protected:
   ros::Publisher auto_pub_;
   ros::Subscriber auto_sub_;
 
-  ExtendedCameraInfo extended_camera_info_params_;
-  ros::Publisher extended_camera_info_pub_;
+  boost::recursive_mutex extended_camera_info_mutex_;
+  std::vector<ros::Publisher> extended_camera_info_pubs_;
 
   Config config_;
   Config config_min_;
@@ -307,8 +307,10 @@ protected:
 
   ArvCamera *p_camera_ = NULL;
   ArvDevice *p_device_ = NULL;
+  gint num_streams_;
   std::vector<ArvStream *> p_streams_;
   std::vector<std::string> stream_names_;
+  bool extended_camera_info;
   std::vector<CameraBufferPool::Ptr> p_buffer_pools_;
   int32_t acquire_ = 0;
   ConversionFunction convert_format;
