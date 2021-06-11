@@ -310,7 +310,8 @@ protected:
   gint num_streams_;
   std::vector<ArvStream *> p_streams_;
   std::vector<std::string> stream_names_;
-  bool extended_camera_info;
+  bool extended_camera_info_;
+  std::string vendor_name_;
   std::vector<CameraBufferPool::Ptr> p_buffer_pools_;
   int32_t acquire_ = 0;
   ConversionFunction convert_format;
