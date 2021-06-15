@@ -1487,7 +1487,11 @@ void CameraAravisNodelet::newBufferReady(ArvStream *p_stream, CameraAravisNodele
       // get frame sequence number
       msg_ptr->header.seq = arv_buffer_get_frame_id(p_buffer);
       // fill other stream properties
-      msg_ptr->header.frame_id = frame_id;
+      if (frame_id.empty()) {
+        msg_ptr->header.frame_id = ros::this_node::getNamespace(); 
+      } else {
+        msg_ptr->header.frame_id = ros::this_node::getNamespace() + '/' + frame_id; 
+      }
       msg_ptr->width = p_can->roi_.width;
       msg_ptr->height = p_can->roi_.height;
       msg_ptr->encoding = p_can->sensors_[stream_id]->pixel_format;
