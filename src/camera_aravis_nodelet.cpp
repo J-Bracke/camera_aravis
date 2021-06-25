@@ -524,7 +524,7 @@ void CameraAravisNodelet::onInit()
 
   p_device_ = arv_camera_get_device(p_camera_);
   vendor_name_ = arv_camera_get_vendor_name(p_camera_);
-  ROS_INFO("Opened: %s-%s", vendor_name_,
+  ROS_INFO("Opened: %s-%s", vendor_name_.c_str(),
            arv_device_get_string_feature_value(p_device_, "DeviceSerialNumber"));
 
   // Start the dynamic_reconfigure server.
@@ -598,30 +598,34 @@ void CameraAravisNodelet::onInit()
     config_max_.FocusPos = 0;
   }
 
-  // Initial camera settings.
-  if (implemented_features_["ExposureTime"])
-    arv_camera_set_exposure_time(p_camera_, config_.ExposureTime);
-  else if (implemented_features_["ExposureTimeAbs"])
-    arv_device_set_float_feature_value(p_device_, "ExposureTimeAbs", config_.ExposureTime);
-  if (implemented_features_["Gain"])
-    arv_camera_set_gain(p_camera_, config_.Gain);
-  if (implemented_features_["AcquisitionFrameRateEnable"])
-    arv_device_set_integer_feature_value(p_device_, "AcquisitionFrameRateEnable", 1);
-  if (implemented_features_["AcquisitionFrameRate"])
-    arv_camera_set_frame_rate(p_camera_, config_.AcquisitionFrameRate);
+  for(int i = 0; i < num_streams_; i++) {
+    arv_camera_gv_select_stream_channel(p_camera_,i);
 
-  // init default to full sensor resolution
-  arv_camera_set_region (p_camera_, 0, 0, roi_.width_max, roi_.height_max);
+    // Initial camera settings.
+    if (implemented_features_["ExposureTime"])
+      arv_camera_set_exposure_time(p_camera_, config_.ExposureTime);
+    else if (implemented_features_["ExposureTimeAbs"])
+      arv_device_set_float_feature_value(p_device_, "ExposureTimeAbs", config_.ExposureTime);
+    if (implemented_features_["Gain"])
+      arv_camera_set_gain(p_camera_, config_.Gain);
+    if (implemented_features_["AcquisitionFrameRateEnable"])
+      arv_device_set_integer_feature_value(p_device_, "AcquisitionFrameRateEnable", 1);
+    if (implemented_features_["AcquisitionFrameRate"])
+      arv_camera_set_frame_rate(p_camera_, config_.AcquisitionFrameRate);
 
-  // Set up the triggering.
-  if (implemented_features_["TriggerMode"] && implemented_features_["TriggerSelector"])
-  {
-    arv_device_set_string_feature_value(p_device_, "TriggerSelector", "FrameStart");
-    arv_device_set_string_feature_value(p_device_, "TriggerMode", "Off");
+    // init default to full sensor resolution
+    arv_camera_set_region (p_camera_, 0, 0, roi_.width_max, roi_.height_max);
+
+    // Set up the triggering.
+    if (implemented_features_["TriggerMode"] && implemented_features_["TriggerSelector"])
+    {
+      arv_device_set_string_feature_value(p_device_, "TriggerSelector", "FrameStart");
+      arv_device_set_string_feature_value(p_device_, "TriggerMode", "Off");
+    }
+
+    // possibly set or override from given parameter
+    writeCameraFeaturesFromRosparam();
   }
-
-  // possibly set or override from given parameter
-  writeCameraFeaturesFromRosparam();
 
   // get current state of camera for config_
   arv_camera_get_region(p_camera_, &roi_.x, &roi_.y, &roi_.width, &roi_.height);
