@@ -559,10 +559,11 @@ void CameraAravisNodelet::onInit()
   pnh.param("camera_info_url", calib_url_args, calib_url_args);
   parseStringArgs(calib_url_args, calib_urls);
 
+  assert(pixel_formats.size() == calib_urls.size());
+
   // check if every stream channel has been given a channel name
-  if (stream_names_.size() < num_streams_) {
-    num_streams_ = stream_names_.size();
-  }
+  if (stream_names_.size() < num_streams_) { num_streams_ = stream_names_.size(); }
+  if (num_streams_ == 0) { num_streams_ = 1; }
 
   // initialize the sensor structs
   for(int i = 0; i < num_streams_; i++) {
@@ -855,17 +856,15 @@ void CameraAravisNodelet::onInit()
   for(int i = 0; i < num_streams_; i++) {
     image_transport::ImageTransport *p_transport;
     // Set up image_raw
-    std::string frame_id = "";
+    std::string topic_name = ros::this_node::getNamespace();
     p_transport = new image_transport::ImageTransport(nh);
-    if(num_streams_ == 1 && stream_names_[i].empty()) {
-      frame_id = "";
-    } else {
-      frame_id = stream_names_[i] + "/";
+    if(num_streams_ != 1 || !stream_names_[i].empty()) {
+        topic_name += "/" + stream_names_[i];
     }
 
-    ROS_INFO("Mapping to %s", (frame_id + "image_raw").c_str());
+    ROS_INFO("Mapping to %s", (topic_name + "/image_raw").c_str());
     cam_pubs_[i] = p_transport->advertiseCamera(
-      ros::names::remap(frame_id + "image_raw"),
+      ros::names::remap(topic_name + "/image_raw"),
       1, image_cb, image_cb, info_cb, info_cb);
   }
 
@@ -1131,14 +1130,14 @@ void CameraAravisNodelet::setAutoSlave(bool value)
   }
 }
 
-void CameraAravisNodelet::setExtendedCameraInfo(std::string frame_id, size_t stream_id)
+void CameraAravisNodelet::setExtendedCameraInfo(std::string channel_name, size_t stream_id)
 {
     if (extended_camera_info_)
     {
-        if (frame_id.empty()) {
+        if (channel_name.empty()) {
           extended_camera_info_pubs_[stream_id]  = getNodeHandle().advertise<ExtendedCameraInfo>(ros::names::remap("extended_camera_info"), 1, true);
         } else {
-          extended_camera_info_pubs_[stream_id]  = getNodeHandle().advertise<ExtendedCameraInfo>(ros::names::remap(frame_id + "/extended_camera_info"), 1, true);
+          extended_camera_info_pubs_[stream_id]  = getNodeHandle().advertise<ExtendedCameraInfo>(ros::names::remap(channel_name + "/extended_camera_info"), 1, true);
         }
     }
     else
@@ -1453,14 +1452,13 @@ void CameraAravisNodelet::newBufferReadyCallback(ArvStream *p_stream, gpointer c
   size_t stream_id = data->stream_id;
   image_transport::CameraPublisher *p_cam_pub = &p_can->cam_pubs_[stream_id];
 
-  std::string stream_frame_id = "";
-  // extend frame id
-  if( !p_can->stream_names_[stream_id].empty() )
+  if( p_can->stream_names_[stream_id].empty() )
   {
-    stream_frame_id += p_can->stream_names_[stream_id];
+    newBufferReady(p_stream, p_can, p_can->config_.frame_id, stream_id);
+  } else {
+    const std::string stream_frame_id = p_can->config_.frame_id + "/" + p_can->stream_names_[stream_id];
+    newBufferReady(p_stream, p_can, stream_frame_id, stream_id);
   }
-
-  newBufferReady(p_stream, p_can, stream_frame_id, stream_id);
 
 }
 
@@ -1491,11 +1489,7 @@ void CameraAravisNodelet::newBufferReady(ArvStream *p_stream, CameraAravisNodele
       // get frame sequence number
       msg_ptr->header.seq = arv_buffer_get_frame_id(p_buffer);
       // fill other stream properties
-      if (frame_id.empty()) {
-        msg_ptr->header.frame_id = ros::this_node::getNamespace(); 
-      } else {
-        msg_ptr->header.frame_id = ros::this_node::getNamespace() + '/' + frame_id; 
-      }
+      msg_ptr->header.frame_id = frame_id;
       msg_ptr->width = p_can->roi_.width;
       msg_ptr->height = p_can->roi_.height;
       msg_ptr->encoding = p_can->sensors_[stream_id]->pixel_format;

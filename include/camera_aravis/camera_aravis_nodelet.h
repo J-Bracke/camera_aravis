@@ -209,7 +209,7 @@ protected:
   void setAutoMaster(bool value);
   void setAutoSlave(bool value);
 
-  void setExtendedCameraInfo(std::string frame_id, size_t stream_id);
+  void setExtendedCameraInfo(std::string channel_name, size_t stream_id);
 
   // Extra stream options for GigEVision streams.
   void tuneGvStream(ArvGvStream *p_stream);
