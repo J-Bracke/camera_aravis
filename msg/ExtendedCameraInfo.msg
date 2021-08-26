@@ -10,3 +10,5 @@ float64 black_level # unit is device-specific
 float64 white_balance_red # unit is device-specific
 float64 white_balance_green # unit is device-specific
 float64 white_balance_blue # unit is device-specific
+
+float64 device_temperature # in degrees Celsius

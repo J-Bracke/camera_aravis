@@ -1576,6 +1576,8 @@ void CameraAravisNodelet::newBufferReady(ArvStream *p_stream, CameraAravisNodele
           msg.white_balance_green = arv_device_get_float_feature_value(p_can->p_device_, "BalanceRatio");
         }
 
+        msg.device_temperature = arv_device_get_float_feature_value(p_can->p_device_, "DeviceTemperature");
+
         p_can->extended_camera_info_mutex_.unlock();
         
         p_can->extended_camera_info_pubs_[stream_id].publish(msg);
