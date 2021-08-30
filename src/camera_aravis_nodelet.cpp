@@ -1576,7 +1576,11 @@ void CameraAravisNodelet::newBufferReady(ArvStream *p_stream, CameraAravisNodele
           msg.white_balance_green = arv_device_get_float_feature_value(p_can->p_device_, "BalanceRatio");
         }
 
-        msg.device_temperature = arv_device_get_float_feature_value(p_can->p_device_, "DeviceTemperature");
+        if (p_can->vendor_name_ == "Basler") {
+	        msg.device_temperature = arv_device_get_float_feature_value(p_can->p_device_, "TemperatureAbs");
+	      } else {
+	        msg.device_temperature = arv_device_get_float_feature_value(p_can->p_device_, "DeviceTemperature");
+	      }
 
         p_can->extended_camera_info_mutex_.unlock();
         
