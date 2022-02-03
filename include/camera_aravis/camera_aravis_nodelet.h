@@ -229,7 +229,7 @@ protected:
   static void newBufferReadyCallback(ArvStream *p_stream, gpointer can_instance);
 
   // Buffer Callback Helper
-  static void newBufferReady(ArvStream *p_stream, CameraBufferPool::Ptr p_buffer_pool, image_transport::CameraPublisher* p_cam_pub, sensor_msgs::CameraInfoPtr p_camera_info, std::unique_ptr<camera_info_manager::CameraInfoManager>& p_camera_info_manager, CameraAravisNodelet *p_can, std::string frame_id, std::string pixel_format, size_t n_bits_pixel);
+  static void newBufferReady(ArvStream *p_stream, CameraBufferPool::Ptr p_buffer_pool, image_transport::CameraPublisher* p_cam_pub, sensor_msgs::CameraInfoPtr p_camera_info, std::unique_ptr<camera_info_manager::CameraInfoManager>& p_camera_info_manager, CameraAravisNodelet *p_can, std::string frame_id, std::string pixel_format, size_t n_bits_pixel, ConversionFunction convert_format);
 
   // Clean-up if aravis device is lost
   static void controlLostCallback(ArvDevice *p_gv_device, gpointer can_instance);
@@ -340,7 +340,7 @@ protected:
   std::vector<std::string> stream_names_;
   std::vector<CameraBufferPool::Ptr> p_buffer_pools_;
   int32_t acquire_ = 0;
-  ConversionFunction convert_format;
+  std::vector<ConversionFunction> convert_formats;
 };
 
 } // end namespace camera_aravis
