@@ -1751,11 +1751,10 @@ void CameraAravisNodelet::discoverFeatures()
 }
 
 void CameraAravisNodelet::parseStringArgs(std::string in_arg_string, std::vector<std::string> &out_args) {
-  size_t array_start = in_arg_string.find('[');
-  size_t array_end = in_arg_string.find(']');
+  size_t array_start = 0;
+  size_t array_end = in_arg_string.length();
   if(array_start != std::string::npos && array_end != std::string::npos) {
         // parse the string into an array of parameters
-        array_start++;  // do not include '[' in string
         std::stringstream ss(in_arg_string.substr(array_start, array_end - array_start));
         while (ss.good()) {
           std::string temp;
