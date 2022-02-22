@@ -54,13 +54,15 @@ extern "C" {
 #include <sensor_msgs/image_encodings.h>
 #include <image_transport/image_transport.h>
 #include <camera_info_manager/camera_info_manager.h>
+#include <boost/algorithm/string/trim.hpp>
 
 #include <dynamic_reconfigure/server.h>
 #include <dynamic_reconfigure/SensorLevels.h>
 #include <tf/transform_listener.h>
 #include <tf2_ros/static_transform_broadcaster.h>
 #include <tf2_ros/transform_broadcaster.h>
-#include <camera_aravis/CameraAravisConfig.h>
+#include <camera_aravis/CameraAravisVisConfig.h>
+#include <camera_aravis/CameraAravisNirConfig.h>
 #include <camera_aravis/CameraAutoInfo.h>
 
 #include "camera_buffer_pool.h"
@@ -68,7 +70,8 @@ extern "C" {
 namespace camera_aravis
 {
 
-typedef CameraAravisConfig Config;
+typedef CameraAravisVisConfig ConfigVis;
+typedef CameraAravisNirConfig ConfigNir;
 
 // Conversions from integers to Arv types.
 const char *szBufferStatusFromInt[] = {"ARV_BUFFER_STATUS_SUCCESS", "ARV_BUFFER_STATUS_CLEARED",
@@ -211,13 +214,18 @@ protected:
   // Extra stream options for GigEVision streams.
   void tuneGvStream(ArvGvStream *p_stream);
 
-  void rosReconfigureCallback(Config &config, uint32_t level);
+  void rosReconfigureCallbackVis(ConfigVis &config, uint32_t level);
+  void rosReconfigureCallbackNir(ConfigNir &config, uint32_t level);
+  void rosReconfigureCallbackNir2(ConfigNir &config, uint32_t level);
 
   // Start and stop camera on demand
   void rosConnectCallback();
 
   // Callback to wrap and send recorded image as ROS message
   static void newBufferReadyCallback(ArvStream *p_stream, gpointer can_instance);
+
+  // Buffer Callback Helper
+  static void newBufferReady(ArvStream *p_stream, CameraAravisNodelet *p_can, std::string frame_id, size_t stream_id);
 
   // Clean-up if aravis device is lost
   static void controlLostCallback(ArvDevice *p_gv_device, gpointer can_instance);
@@ -229,6 +237,8 @@ protected:
 
   void discoverFeatures();
 
+  static void parseStringArgs(std::string in_arg_string, std::vector<std::string> &out_args);
+
   // WriteCameraFeaturesFromRosparam()
   // Read ROS parameters from this node's namespace, and see if each parameter has a similarly named & typed feature in the camera.  Then set the
   // camera feature to that value.  For example, if the parameter camnode/Gain is set to 123.0, then we'll write 123.0 to the Gain feature
@@ -238,13 +248,20 @@ protected:
   // looking at the camera's XML file.  Camera enum's are string parameters, camera bools are false/true parameters (not 0/1),
   // integers are integers, doubles are doubles, etc.
   void writeCameraFeaturesFromRosparam();
+  void adaptExposureSettingsToFPS();
 
-  std::unique_ptr<dynamic_reconfigure::Server<Config> > reconfigure_server_;
-  boost::recursive_mutex reconfigure_mutex_;
+  std::unique_ptr<dynamic_reconfigure::Server<ConfigVis> > reconfigure_server_vis_;
+  boost::recursive_mutex reconfigure_mutex_vis_;
 
-  image_transport::CameraPublisher cam_pub_;
-  std::unique_ptr<camera_info_manager::CameraInfoManager> p_camera_info_manager_;
-  sensor_msgs::CameraInfoPtr camera_info_;
+  std::unique_ptr<dynamic_reconfigure::Server<ConfigNir> > reconfigure_server_nir_;
+  boost::recursive_mutex reconfigure_mutex_nir_;
+
+  std::unique_ptr<dynamic_reconfigure::Server<ConfigNir> > reconfigure_server_nir2_;
+  boost::recursive_mutex reconfigure_mutex_nir2_;
+
+  std::vector<image_transport::CameraPublisher> cam_pubs_;
+  std::vector<std::unique_ptr<camera_info_manager::CameraInfoManager>> p_camera_info_managers_;
+  std::vector<sensor_msgs::CameraInfoPtr> camera_infos_;
 
   std::unique_ptr<tf2_ros::StaticTransformBroadcaster> p_stb_;
   std::unique_ptr<tf2_ros::TransformBroadcaster> p_tb_;
@@ -256,9 +273,17 @@ protected:
   ros::Publisher auto_pub_;
   ros::Subscriber auto_sub_;
 
-  Config config_;
-  Config config_min_;
-  Config config_max_;
+  ConfigVis config_vis_;
+  ConfigVis config_vis_min_;
+  ConfigVis config_vis_max_;
+
+  ConfigNir config_nir_;
+  ConfigNir config_nir_min_;
+  ConfigNir config_nir_max_;
+
+  ConfigNir config_nir2_;
+  ConfigNir config_nir2_min_;
+  ConfigNir config_nir2_max_;
 
   std::thread software_trigger_thread_;
   std::atomic_bool software_trigger_active_;
@@ -278,20 +303,31 @@ protected:
     int32_t height_max = 0;
   } roi_;
 
-  struct
+  struct Sensor
   {
     int32_t width = 0;
     int32_t height = 0;
     std::string pixel_format;
     size_t n_bits_pixel = 0;
-  } sensor_;
+  };
+
+  std::vector<Sensor *> sensors_;
+
+  struct StreamIdData
+  {
+    CameraAravisNodelet* can;
+    size_t stream_id;
+  };
 
   ArvCamera *p_camera_ = NULL;
   ArvDevice *p_device_ = NULL;
-  ArvStream *p_stream_ = NULL;
-  CameraBufferPool::Ptr p_buffer_pool_;
+  gint num_streams_;
+  std::vector<ArvStream *> p_streams_;
+  std::vector<std::string> stream_names_;
+  std::vector<CameraBufferPool::Ptr> p_buffer_pools_;
   int32_t acquire_ = 0;
-  ConversionFunction convert_format;
+  std::vector<ConversionFunction> convert_format;
+  std::string sync_mode = "SyncMode";
 };
 
 } // end namespace camera_aravis

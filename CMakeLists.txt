@@ -19,7 +19,7 @@ find_package(catkin REQUIRED COMPONENTS
 find_package(Aravis REQUIRED)
 find_package(GLIB2 REQUIRED)
 
-generate_dynamic_reconfigure_options(cfg/CameraAravisConfig.cfg)
+generate_dynamic_reconfigure_options(cfg/CameraAravisVis.cfg cfg/CameraAravisNir.cfg)
 
 add_message_files(
    FILES
@@ -51,10 +51,12 @@ set(LIBRARIES
   gobject-2.0
 )
 
+
 add_library(${PROJECT_NAME}
   src/camera_aravis_nodelet.cpp
   src/camera_buffer_pool.cpp
 )
+add_dependencies(camera_aravis ${PROJECT_NAME}_gencfg)
 target_link_libraries(${PROJECT_NAME} ${LIBRARIES})
 add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
@@ -63,6 +65,7 @@ add_executable(cam_aravis
 )
 target_link_libraries(cam_aravis ${PROJECT_NAME} ${LIBRARIES})
 add_dependencies(cam_aravis ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
 
 install(DIRECTORY include/${PROJECT_NAME}/
   DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}

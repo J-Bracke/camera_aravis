@@ -1,3 +1,37 @@
+This is a [ROS](http://ros.org) package for the [Aravis GigEVision
+library](http://live.gnome.org/Aravis). It is open source, under the
+LGPL (like Aravis itself).
+
+This repo is forked from the github repo: (https://github.com/UniBwTAS/camera_aravis/tree/pr-multisource-cameras)
+
+The version in this repo is adapted to the specific needs of the multiprism camera modell **JAI-FS3200T-10GE-NNC**!
+This ROS node works with aravis 0.6. Be sure you have the right version of aravis installed on your machine (https://github.com/AravisProject/aravis/tree/aravis-0-6).
+The JAI SDK or JAI eBUS SDK is **not** needed!
+
+This version includes a ROS reconfigure_gui to adjust the important camera parameters for each channel of the multiprism camera independently.
+
+The JAI camera delivers the color images from the color channel only in the BayerRG8/10/12 image format. In order to debayer the images the ros package [image-proc](http://wiki.ros.org/image_proc?distro=noetic) is used.
+All in all this ROS wrapper has the following dependencies:
+* [image_pipeline](http://wiki.ros.org/image_pipeline?distro=noetic)
+* [dynamic_reconfigure](http://wiki.ros.org/dynamic_reconfigure)
+* [image_transport](http://wiki.ros.org/image_transport)
+
+The basic command to run camera_aravis wrapper:
+
+	$ roslaunch camera_aravis jai_FS3200T_camera.launch
+
+Make sure to fill in the correct serial_no for your JAI-camera in the launch-file before.
+
+It is important to activate packet sockets for the video receiving thread in order to let the wrapper run smoothly esspecially at higher FPS-rates:
+
+	$ sudo setcap cap_net_raw+ep ~catkin_ws/devel/lib/pkgconfig/camera_aravis.pc
+
+For further information regarding the packet sockets look into the aravis documentation: https://aravisproject.github.io/aravis/ethernet.html
+
+------------------------
+**Original old README**:
+
+
 THIS README IS CURRENTLY OUT OF DATE. IT WILL BE UPDATED SOON. PLEASE SEE COMMIT DESCRIPTIONS FOR LATEST CHANGES.
 
 camera_aravis - forked from a deleted github repo (https://github.com/CaeruleusAqua/camera_aravis), which was itself forked from ssafarik: https://github.com/ssafarik/camera_aravis.
@@ -8,9 +42,7 @@ This is a ROS node that works with aravis.
 * aravis version 0.6 (unverified):
   * use commit: da5c21caf3d233c1c1c9d24ead87aead509aa2b1
 
-This is a [ROS](http://ros.org) package for the [Aravis GigEVision
-library](http://live.gnome.org/Aravis). It is open source, under the
-LGPL (like Aravis itself).
+
 
 
 ------------------------
